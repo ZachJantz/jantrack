@@ -1,4 +1,4 @@
-# jant_track
+# jantrack
 ## Outline
 Jant_track is a digital asset management system developed for my senior studio project.<br>
 It is designed to stream line collaboration over our systems network file spaces.<br>
