@@ -177,6 +177,7 @@ class Jantrack(QtWidgets.QMainWindow):
 
         self.get_local_directory = QtWidgets.QPushButton("Set")
         merge_context_hlayout1.addWidget(self.get_local_directory)
+
         # Prompt project setting
         self.select_local_project_path()
         self.get_local_directory.clicked.connect(self.select_local_project_path)
@@ -187,6 +188,11 @@ class Jantrack(QtWidgets.QMainWindow):
 
         self.merge_files_box = QtWidgets.QCheckBox("Include Asset Files")
         merge_context_vlayout1.addWidget(self.merge_files_box)
+        self.merge_files_box.setChecked(True)
+
+        self.reload_button = QtWidgets.QPushButton("Reload Jantrack")
+        merge_context_vlayout1.addWidget(self.reload_button)
+        self.reload_button.clicked.connect(self.reload_jantrack)
 
 
     # ------------------------Update View Functions-------------------------------
@@ -278,8 +284,6 @@ class Jantrack(QtWidgets.QMainWindow):
                 self.jtm.delete_shot(self.active_shot)
 
                 self.update_shot_list_view()
-                self.asset_list_view.clear()
-                self.clear_asset_data_display()
 
             else:
                 return None
@@ -388,7 +392,15 @@ class Jantrack(QtWidgets.QMainWindow):
                                                     "Confirm jantrack data merge")
         if confirm == QtWidgets.QMessageBox.Yes:
 
-            self.jtm.commit_local_jantrack_changes(self.merge_files_box.isChecked())    
+            self.jtm.commit_local_jantrack_changes(self.merge_files_box.isChecked())
+
+
+    def reload_jantrack(self):
+        """
+        Allow users to get latest jantrack commits
+        """    
+        self.jtm.refresh_jantrack()
+        self.update_shot_list_view()
 
 
 def run_jantrack():
