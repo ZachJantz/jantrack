@@ -156,7 +156,7 @@ class Jantrack_Management():
             destination_path = os.path.join(destination, file_rel_path)
             source_path = os.path.join(source, file_rel_path)
 
-            if os.path.exists(destination_path) is False:
+            if os.path.exists(destination_path) is False and os.path.exists(source_path) is True:
                 if os.path.isdir(source_path):
                     subprocess.run(["cp","-r",source_path, destination_path])
                 else:
@@ -193,7 +193,7 @@ class Jantrack_Management():
                     local_file_path = os.path.join(self.LOCAL_PATH, file_rel_path)
                     network_file_path = os.path.join(self.RIDER_PROJECT_PATH, file_rel_path)
 
-                    if os.path.exists(network_file_path) is False:
+                    if os.path.exists(local_file_path) is True:
 
                         # Files are moved with subprocess to get around annoying network blocks
                         if os.path.isdir(local_file_path):
@@ -203,6 +203,14 @@ class Jantrack_Management():
                             subprocess.run(["cp",local_file_path, network_file_path])
 
 
+    def refresh_jantrack(self):
+        """
+        Function for inporting any changes made by other jantrack users
+        """
+        self.manifest_import.load_manifest()
+        self.jantrack_data = copy.deepcopy(self.manifest_import.manifest_data)
+
+        
     def get_hip(self, shot):
         """
         Get the latest network houdini file path for a shot from the network drive
