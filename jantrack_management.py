@@ -80,7 +80,10 @@ class Jantrack_Management():
         shot_assets = self.jantrack_data[shot]
 
         # Get asset data
-        new_asset = os.path.basename(new_asset_path)
+        if os.path.isdir(new_asset_path):
+            new_asset = os.path.basename(os.path.normpath(new_asset_path))
+        else:
+            new_asset = os.path.basename(new_asset_path)
         active_user = os.getlogin()
         update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         asset_path = os.path.relpath(new_asset_path, self.LOCAL_PATH)
@@ -193,13 +196,14 @@ class Jantrack_Management():
                     local_file_path = os.path.join(self.LOCAL_PATH, file_rel_path)
                     network_file_path = os.path.join(self.RIDER_PROJECT_PATH, file_rel_path)
 
-                    if os.path.exists(local_file_path) is True:
-
+                    if os.path.isdir(local_file_path):
+                        if os.path.exists(local_file_path) is True and os.listdir(network_file_path) == []:
+                            local_file_path_format = local_file_path + "/*"
+                            print(local_file_path_format)
+                            subprocess.run(["cp", "-rT", local_file_path, network_file_path])
+                    else:
+                        if os.path.exists(local_file_path) is True and os.path.exists(network_file_path) is False:
                         # Files are moved with subprocess to get around annoying network blocks
-                        if os.path.isdir(local_file_path):
-                            subprocess.run(["cp","-r",local_file_path, network_file_path])
-
-                        else:
                             subprocess.run(["cp",local_file_path, network_file_path])
 
 
