@@ -6,6 +6,7 @@
 from PyQt5 import QtWidgets, QtCore, QtGui
 import sys
 import time
+import os
 
 from jantrack_management import Jantrack_Management
 
@@ -109,6 +110,10 @@ class Jantrack(QtWidgets.QMainWindow):
         self.delete_asset_button = QtWidgets.QPushButton("Delete Assets")
         asset_context_hlayout1.addWidget(self.delete_asset_button)
         self.delete_asset_button.clicked.connect(self.delete_selected_asset)
+
+        self.add_asset_directory_button = QtWidgets.QPushButton("Add Multi-Component Folder")
+        self.asset_context_vlayout1.addWidget(self.add_asset_directory_button)
+        self.add_asset_directory_button.clicked.connect(self.new_asset_directory)
 
 
         # Left side split layout
@@ -371,7 +376,24 @@ class Jantrack(QtWidgets.QMainWindow):
         else:
             return None
 
+
+    def new_asset_directory(self):
+        """
+        Add a folder containing a sequential frame dependant asset
+        """
+        if self.active_shot != None:
+            asset_directory_path = QtWidgets.QFileDialog.getExistingDirectory(self, caption = "Select Asset Directory",
+                                                                                directory = self.jtm.LOCAL_PATH)
+            try:
+                if os.path.isdir(asset_directory_path):
+                    self.jtm.add_asset(self.active_shot, asset_directory_path)
+                self.update_asset_list_view()
+            except:
+                warning3 = QtWidgets.QMessageBox.critical(self, "Warning", "Failed to add asset")
+        else:
+            warning4 = QtWidgets.QMessageBox.critical(self, "Warning", "Select a shot first")
     
+
     #------------------------Commit Functions-------------------------------------
 
     def select_local_project_path(self):
