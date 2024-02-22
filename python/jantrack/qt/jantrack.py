@@ -8,7 +8,7 @@ import sys
 import time
 import os
 
-from jantrack_management import Jantrack_Management
+from database.jantrack_management import Jantrack_Management
 
 
 class Jantrack(QtWidgets.QMainWindow):
@@ -305,6 +305,7 @@ class Jantrack(QtWidgets.QMainWindow):
                                                     "Confirm pushing {} to the SCAD RenderFarm".format(self.active_shot))
 
             if button == QtWidgets.QMessageBox.Yes:
+
                 self.jtm.push_to_farm(self.active_shot)
 
         else:
@@ -432,10 +433,6 @@ def run_jantrack():
     jantrack_ui.show()
     sys.exit(app.exec())
 
-
-if __name__ == "__main__":
-
-    run_jantrack()
         
 
 

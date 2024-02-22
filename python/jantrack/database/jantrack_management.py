@@ -9,7 +9,7 @@ import copy
 import subprocess
 from glob import glob
 
-from manifest import Manifest
+from database.manifest import Manifest
 
  
 
@@ -31,6 +31,9 @@ class Jantrack_Management():
         self.RIDER_PROJECT_PATH = os.path.expanduser("~") + "/mount/CollaborativeSpace/rider-project/rider/"
         # Local project path set by users
         self.LOCAL_PATH = ""
+
+        self.uncommitted_additions = []
+        self.uncommitted_deletions = []
 
 
     def query_assets(self,shot):
@@ -122,6 +125,7 @@ class Jantrack_Management():
         Copy a shots assets to the render farm drive from the network drive
         Input: string shot
         """
+
         self.mirror_project_structure(self.RIDER_PROJECT_PATH, self.FARM_PATH)
         self.mirror_shot_files(shot, self.RIDER_PROJECT_PATH, self.FARM_PATH)
 
@@ -159,17 +163,20 @@ class Jantrack_Management():
             destination_path = os.path.join(destination, file_rel_path)
             source_path = os.path.join(source, file_rel_path)
 
-            if os.path.exists(destination_path) is False and os.path.exists(source_path) is True:
-                if os.path.isdir(source_path):
-                    subprocess.run(["cp","-r",source_path, destination_path])
-                else:
+            if os.path.isdir(source_path):
+                if os.path.exists(source_path) is True:
+                    subprocess.run(["cp","-rT",source_path, destination_path])
+            else:
+                if os.path.exists(source_path) is True and os.path.exists(destination_path) is False:
                     subprocess.run(["cp",source_path, destination_path])
 
         # Copy latest hip file version
         hip_source_path = self.get_hip(shot)
-        hip_destination_path = os.path.join(destination, os.path.basename(hip_source_path))
 
-        subprocess.run(["cp",hip_source_path,hip_destination_path])
+        if hip_source_path != None:
+            hip_destination_path = os.path.join(destination, os.path.basename(hip_source_path))
+
+            subprocess.run(["cp",hip_source_path,hip_destination_path])
 
 
     def commit_local_jantrack_changes(self, merge_files_check):
@@ -178,8 +185,6 @@ class Jantrack_Management():
         Copies required files to the network
         Input: bool merge_files_check
         """
-        self.manifest_import.manifest_data = self.jantrack_data
-        self.manifest_import.update_manifest()
 
         self.mirror_project_structure(self.LOCAL_PATH, self.RIDER_PROJECT_PATH)
 
@@ -197,14 +202,15 @@ class Jantrack_Management():
                     network_file_path = os.path.join(self.RIDER_PROJECT_PATH, file_rel_path)
 
                     if os.path.isdir(local_file_path):
-                        if os.path.exists(local_file_path) is True and os.listdir(network_file_path) == []:
-                            local_file_path_format = local_file_path + "/*"
-                            print(local_file_path_format)
+                        if os.path.exists(local_file_path) is True:
                             subprocess.run(["cp", "-rT", local_file_path, network_file_path])
                     else:
                         if os.path.exists(local_file_path) is True and os.path.exists(network_file_path) is False:
                         # Files are moved with subprocess to get around annoying network blocks
                             subprocess.run(["cp",local_file_path, network_file_path])
+                            
+        self.manifest_import.manifest_data = self.jantrack_data
+        self.manifest_import.update_manifest()
 
 
     def refresh_jantrack(self):
@@ -223,18 +229,17 @@ class Jantrack_Management():
         """
         path = os.path.join(self.RIDER_PROJECT_PATH, shot) + "*"
 
-        hips = glob(path)
-        shot_hip_path = hips[-1]
+        hips = sorted(glob(path))
 
-        return shot_hip_path
+        if len(hips)>1:
+            shot_hip_path = hips[-1]
+
+            return shot_hip_path
+
+        else:
+            return None
 
 
-if __name__ == "__main__":
-
-    manager = Jantrack_Management()
-
-    print(type(manager.jantrack_data))
-    print(manager.jantrack_data)
 
 
 
