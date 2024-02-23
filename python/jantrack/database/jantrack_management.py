@@ -99,6 +99,25 @@ class Jantrack_Management():
             "updated":update_time
         }
 
+    
+    def paste_asset(self,source_shot, asset_key, destination_shot):
+        """
+        Add a copied asset to a new shot
+        Inputs: string source_shot, string asset_key, string destination_shot
+        """
+
+        destination_assets = self.jantrack_data[destination_shot]
+        pasted_asset_data = self.jantrack_data[source_shot][asset_key]
+
+        active_user = os.getlogin()
+        update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        destination_assets[asset_key] = {
+            "path":pasted_asset_data["path"],
+            "user":active_user,
+            "updated":update_time
+        }
+
 
     def delete_asset(self, shot, asset):
         """

@@ -162,7 +162,7 @@ class Jantrack(QtWidgets.QMainWindow):
         self.data_hlayout3.addWidget(self.update_time_data)
 
 
-    # --------------------------Merge Utility Group------------------------------
+        # --------------------------Merge Utility Group------------------------------
         
         self.merge_context = QtWidgets.QGroupBox()
         self.merge_context.setTitle("Jantrack Updates")
@@ -201,6 +201,17 @@ class Jantrack(QtWidgets.QMainWindow):
         self.reload_button.clicked.connect(self.reload_jantrack)
 
 
+        # -------------------------Keyboard Shortcuts-----------------------------
+
+        self.copy_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_C),self)
+        self.copy_shortcut.activated.connect(self.copy_assets)
+        self.copied_assets = []
+
+        self.paste_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence(QtCore.Qt.CTRL + QtCore.Qt.Key_V),self)
+        self.paste_shortcut.activated.connect(self.paste_assets)
+        
+
+
     # ------------------------Update View Functions-------------------------------
 
     def update_shot_list_view(self):
@@ -216,7 +227,6 @@ class Jantrack(QtWidgets.QMainWindow):
         """
         Store the acitvely selected shot
         """
-
         self.active_shot = item.text()
 
 
@@ -225,7 +235,6 @@ class Jantrack(QtWidgets.QMainWindow):
         Store the actively selected asset
         """
         assets = [item.text() for item in list(self.asset_list_view.selectedItems())]
-        print(assets)
         self.active_assets = assets
 
 
@@ -382,8 +391,23 @@ class Jantrack(QtWidgets.QMainWindow):
         else:
             return None
 
+    def copy_assets(self):
 
-    
+        self.copied_assets = self.active_assets
+        self.copied_shot = self.active_shot
+
+
+    def paste_assets(self):
+
+        if self.active_shot != None:
+            for asset in self.copied_assets:
+                if asset not in self.jtm.jantrack_data[self.active_shot].keys():
+                    self.jtm.paste_asset(self.copied_shot, asset, self.active_shot)
+            self.update_asset_list_view()
+                    
+        else:
+            warning1 = QtWidgets.QMessageBox.critical(self, "Warning", "Select a shot first")
+
 
     def new_asset_directory(self):
         """
