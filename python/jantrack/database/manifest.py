@@ -9,7 +9,7 @@ import os
 
 
 # Absolute path tp project manifest
-MANIFEST_PATH = os.path.expanduser("~") + "/mount/CollaborativeSpace/rider-project/jantrack/riders_manifest.json"
+MANIFEST_PATH = os.environ.get("JANTRACK_MANIFEST_PATH")
 
 
 
@@ -23,7 +23,7 @@ class Manifest():
     def __init__(self):
 
         self.manifest_path = MANIFEST_PATH
-        self.manifest_data = ""
+        self.manifest_data = {}
         self.load_manifest()
 
 
