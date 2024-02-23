@@ -10,6 +10,7 @@ import subprocess
 from glob import glob
 
 from database.manifest import Manifest
+from database.jantrack_ftp import copy_shot_assets, transfer_hip
 
  
 
@@ -25,10 +26,10 @@ class Jantrack_Management():
         self.manifest_import = Manifest()
         self.jantrack_data = copy.deepcopy(self.manifest_import.manifest_data)
 
-        # Absolute path to the network farm directory based on user
-        self.FARM_PATH = os.path.expanduser("~") + "/mount/RenderFarm/rider"
-        # Absolute path to the project folder based on user
-        self.RIDER_PROJECT_PATH = os.path.expanduser("~") + "/mount/CollaborativeSpace/rider-project/rider/"
+        # Absolute path to the network farm directory
+        self.FARM_PATH = os.environ.get("JANTRACK_FARM_PATH")
+        # Absolute path to the project folder
+        self.NETWORK_PROJECT_PATH = os.environ.get("JANTRACK_NETWORK_PATH")
         # Local project path set by users
         self.LOCAL_PATH = ""
 
@@ -116,8 +117,8 @@ class Jantrack_Management():
         """
         if os.path.isdir(self.LOCAL_PATH):
 
-            self.mirror_project_structure(self.RIDER_PROJECT_PATH, self.LOCAL_PATH)
-            self.mirror_shot_files(shot, self.RIDER_PROJECT_PATH, self.LOCAL_PATH)  
+            copy_shot_assets(self.jantrack_data[shot], self.NETWORK_PROJECT_PATH, self.LOCAL_PATH)
+            transfer_hip(self.get_network_hip(shot), self.LOCAL_PATH) 
 
 
     def push_to_farm(self, shot):
@@ -125,58 +126,8 @@ class Jantrack_Management():
         Copy a shots assets to the render farm drive from the network drive
         Input: string shot
         """
-
-        self.mirror_project_structure(self.RIDER_PROJECT_PATH, self.FARM_PATH)
-        self.mirror_shot_files(shot, self.RIDER_PROJECT_PATH, self.FARM_PATH)
-
-
-    def mirror_project_structure(self, source, destination):
-        """
-        Copy a houdini project structure to destination
-        Input: string source, string destination
-        """
-
-        sub_directories = [f[0] for f in os.walk(source)]
-        if os.path.isdir(destination) is False:
-            os.mkdir(destination)
-
-        for dir in sub_directories:
-
-            rel_path = os.path.relpath(dir, source)
-            destination_path = os.path.join(destination,rel_path)
-
-            if os.path.isdir(destination_path) is False:
-                os.mkdir(destination_path)
-
-
-    def mirror_shot_files(self, shot, source, destination):
-        """
-        Copy the assets of a shot to a location
-        Input: string shot, string source, string destination
-        """
-        shot_assets = self.jantrack_data[shot]
-
-        for asset, asset_data in shot_assets.items():
-
-            file_rel_path = asset_data["path"]
-
-            destination_path = os.path.join(destination, file_rel_path)
-            source_path = os.path.join(source, file_rel_path)
-
-            if os.path.isdir(source_path):
-                if os.path.exists(source_path) is True:
-                    subprocess.run(["cp","-rT",source_path, destination_path])
-            else:
-                if os.path.exists(source_path) is True and os.path.exists(destination_path) is False:
-                    subprocess.run(["cp",source_path, destination_path])
-
-        # Copy latest hip file version
-        hip_source_path = self.get_hip(shot)
-
-        if hip_source_path != None:
-            hip_destination_path = os.path.join(destination, os.path.basename(hip_source_path))
-
-            subprocess.run(["cp",hip_source_path,hip_destination_path])
+        copy_shot_assets(self.jantrack_data[shot], self.NETWORK_PROJECT_PATH, self.FARM_PATH)
+        transfer_hip(self.get_network_hip(shot), self.FARM_PATH)
 
 
     def commit_local_jantrack_changes(self, merge_files_check):
@@ -185,8 +136,6 @@ class Jantrack_Management():
         Copies required files to the network
         Input: bool merge_files_check
         """
-
-        self.mirror_project_structure(self.LOCAL_PATH, self.RIDER_PROJECT_PATH)
 
         if merge_files_check:
 
@@ -221,16 +170,14 @@ class Jantrack_Management():
         self.jantrack_data = copy.deepcopy(self.manifest_import.manifest_data)
 
         
-    def get_hip(self, shot):
+    def get_network_hip(self, shot):
         """
         Get the latest network houdini file path for a shot from the network drive
         Input: string shot
         Output: string shot_hip_path
         """
-        path = os.path.join(self.RIDER_PROJECT_PATH, shot) + "*"
-
+        path = os.path.join(self.NETWORK_PROJECT_PATH, shot) + "*"
         hips = sorted(glob(path))
-
         if len(hips)>1:
             shot_hip_path = hips[-1]
 

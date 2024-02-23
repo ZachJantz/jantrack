@@ -48,9 +48,9 @@ class Jantrack(QtWidgets.QMainWindow):
 
         # Shot list view
         self.shot_list_view = QtWidgets.QListWidget()
+        self.shot_list_view.setSortingEnabled(True)
         self.update_shot_list_view()
         self.shot_context_vlayout1.addWidget(self.shot_list_view)
-        self.shot_list_view.setSortingEnabled(True)
         self.active_shot = None
 
         # Shot list view signal actions
@@ -92,11 +92,12 @@ class Jantrack(QtWidgets.QMainWindow):
         # Asset lsit view
         self.asset_list_view = QtWidgets.QListWidget()
         self.asset_context_vlayout1.addWidget(self.asset_list_view)
+        self.asset_list_view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.asset_list_view.setSortingEnabled(True)
-        self.active_asset = None
+        self.active_assets = None
 
         # Asset list view signal actions
-        self.asset_list_view.itemPressed.connect(self.update_active_asset)
+        self.asset_list_view.itemSelectionChanged.connect(self.update_active_asset)
         self.asset_list_view.itemPressed.connect(self.update_data_view)
 
         # Asset utilities 
@@ -215,14 +216,17 @@ class Jantrack(QtWidgets.QMainWindow):
         """
         Store the acitvely selected shot
         """
+
         self.active_shot = item.text()
 
 
-    def update_active_asset(self,item):
+    def update_active_asset(self):
         """
         Store the actively selected asset
         """
-        self.active_asset = item.text()
+        assets = [item.text() for item in list(self.asset_list_view.selectedItems())]
+        print(assets)
+        self.active_assets = assets
 
 
     def update_asset_list_view(self):
@@ -241,9 +245,9 @@ class Jantrack(QtWidgets.QMainWindow):
         """
         self.clear_asset_data_display()
 
-        self.asset_path_data.setText(self.jtm.query_asset_data(self.active_shot, self.active_asset,"path"))
-        self.user_data.setText(self.jtm.query_asset_data(self.active_shot, self.active_asset,"user"))
-        self.update_time_data.setText(self.jtm.query_asset_data(self.active_shot, self.active_asset,"updated"))
+        self.asset_path_data.setText(self.jtm.query_asset_data(self.active_shot, self.active_assets[-1],"path"))
+        self.user_data.setText(self.jtm.query_asset_data(self.active_shot, self.active_assets[-1],"user"))
+        self.update_time_data.setText(self.jtm.query_asset_data(self.active_shot, self.active_assets[-1],"updated"))
 
 
     def clear_asset_data_display(self):
@@ -363,20 +367,23 @@ class Jantrack(QtWidgets.QMainWindow):
         """
         Delete the selected asset from the active shot
         """
-        if self.active_asset != None:
-            button = QtWidgets.QMessageBox.question(self, "Confirm", 
-                                                    "Are you sure you want to delete {}?\nThis action is not reversable".format(self.active_asset))
-            # If confirmed delete the asset
-            if button == QtWidgets.QMessageBox.Yes:
+        if self.active_assets != None:
+            for asset in self.active_assets:
+                button = QtWidgets.QMessageBox.question(self, "Confirm", 
+                                                        "Are you sure you want to delete {}?\nThis action is not reversable".format(asset))
+                # If confirmed delete the asset
+                if button == QtWidgets.QMessageBox.Yes:
 
-                self.jtm.delete_asset(self.active_shot,self.active_asset)
-                self.update_asset_list_view()
-                self.clear_asset_data_display()
-            else:
-                return None
+                    self.jtm.delete_asset(self.active_shot,asset)
+                    self.update_asset_list_view()
+                    self.clear_asset_data_display()
+                else:
+                    return None
         else:
             return None
 
+
+    
 
     def new_asset_directory(self):
         """
@@ -426,14 +433,7 @@ class Jantrack(QtWidgets.QMainWindow):
         self.update_shot_list_view()
 
 
-def run_jantrack():
 
-    app = QtWidgets.QApplication(sys.argv)
-    jantrack_ui = Jantrack()
-    jantrack_ui.show()
-    sys.exit(app.exec())
-
-        
 
 
     
