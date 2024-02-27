@@ -6,11 +6,11 @@
 import os
 from datetime import datetime
 import copy
-import subprocess
 from glob import glob
 
-from database.manifest import Manifest
-from database.jantrack_ftp import copy_shot_assets, transfer_hip
+from database.manifest import load_disk_manifest, update_disk_manifest
+from database.jantrack_ftp import copy_shot_assets, transfer_hip, transfer_asset_files
+from database.commit_tracking import Commits
 
  
 
@@ -23,8 +23,7 @@ class Jantrack_Management():
     def __init__(self):
 
         # Load the manifest file and store the data in a dictionary
-        self.manifest_import = Manifest()
-        self.jantrack_data = copy.deepcopy(self.manifest_import.manifest_data)
+        self.jantrack_data = copy.deepcopy(load_disk_manifest())
 
         # Absolute path to the network farm directory
         self.FARM_PATH = os.environ.get("JANTRACK_FARM_PATH")
@@ -33,8 +32,8 @@ class Jantrack_Management():
         # Local project path set by users
         self.LOCAL_PATH = ""
 
-        self.uncommitted_additions = []
-        self.uncommitted_deletions = []
+        self.commit_record = Commits()
+
 
 
     def query_assets(self,shot):
@@ -66,6 +65,8 @@ class Jantrack_Management():
         Input: string new_shot
         """
         self.jantrack_data[new_shot] = {}
+        self.commit_record.record_shot_addition(new_shot)
+        print(self.commit_record.shot_additions)
 
 
     def delete_shot(self, shot):
@@ -74,6 +75,7 @@ class Jantrack_Management():
         Input: string shot
         """
         del self.jantrack_data[shot]
+        self.commit_record.record_shot_deletion(shot)
 
 
     def add_asset(self,shot, new_asset_path):
@@ -93,11 +95,14 @@ class Jantrack_Management():
         asset_path = os.path.relpath(new_asset_path, self.LOCAL_PATH)
 
         # New asset and asset data is added to shot assets
-        shot_assets[new_asset] = {
-            "path":asset_path,
-            "user":active_user,
-            "updated":update_time
-        }
+        if new_asset not in shot_assets.keys():
+            shot_assets[new_asset] = {
+                "path":asset_path,
+                "user":active_user,
+                "updated":update_time
+            }
+
+            self.commit_record.record_asset_addition(shot,new_asset)
 
     
     def paste_asset(self,source_shot, asset_key, destination_shot):
@@ -118,6 +123,8 @@ class Jantrack_Management():
             "updated":update_time
         }
 
+        self.commit_record.record_asset_addition(destination_shot, asset_key)
+
 
     def delete_asset(self, shot, asset):
         """
@@ -126,8 +133,27 @@ class Jantrack_Management():
         """
         shot_assets = self.jantrack_data[shot]
         del shot_assets[asset]
-            
+        self.commit_record.record_asset_deletion(shot, asset)
+    
+    
+    def get_network_hip(self, shot):
+        """
+        Get the latest network houdini file path for a shot from the network drive
+        Input: string shot
+        Output: string shot_hip_path
+        """
+        
+        path = os.path.join(self.NETWORK_PROJECT_PATH, shot) + "*"
+        hips = sorted(glob(path))
+        if len(hips)>=1:
+            shot_hip_path = hips[-1]
 
+            return shot_hip_path
+
+        else:
+            return None
+
+            
     def clone_shot_locally(self,shot):
         """
         Pull the selected shot's assets to the local drive from the
@@ -158,52 +184,62 @@ class Jantrack_Management():
 
         if merge_files_check:
 
-            # Loop through shots
-            for shot, shot_data in self.jantrack_data.items():
+            # Loop stored asset commits
+            for key_path in self.commit_record.asset_additions:
+                transfer_asset_files(self.jantrack_data[key_path[0]][key_path[1]], self.LOCAL_PATH, self.NETWORK_PROJECT_PATH)
 
-                # Loop through assets
-                for asset, asset_data in shot_data.items():
+        # Memory database -> disk database
+                
+        disk_data = load_disk_manifest()
 
-                    file_rel_path = asset_data["path"]
+        for shot_key in self.commit_record.shot_additions:
+            disk_data[shot_key] = {}
 
-                    local_file_path = os.path.join(self.LOCAL_PATH, file_rel_path)
-                    network_file_path = os.path.join(self.RIDER_PROJECT_PATH, file_rel_path)
+        for shot_key in self.commit_record.shot_deletions:
+            del disk_data[shot_key]
 
-                    if os.path.isdir(local_file_path):
-                        if os.path.exists(local_file_path) is True:
-                            subprocess.run(["cp", "-rT", local_file_path, network_file_path])
-                    else:
-                        if os.path.exists(local_file_path) is True and os.path.exists(network_file_path) is False:
-                        # Files are moved with subprocess to get around annoying network blocks
-                            subprocess.run(["cp",local_file_path, network_file_path])
-                            
-        self.manifest_import.manifest_data = self.jantrack_data
-        self.manifest_import.update_manifest()
+        for asset_record in self.commit_record.asset_additions:
+            disk_data[asset_record[0]][asset_record[1]] = self.jantrack_data[asset_record[0]][asset_record[1]]
 
+        for asset_record in self.commit_record.asset_deletions:
+            del disk_data[asset_record[0]][asset_record[1]]
+        
+        update_disk_manifest(disk_data)
+        self.commit_record.clear_record()
 
+        
     def refresh_jantrack(self):
         """
         Function for inporting any changes made by other jantrack users
         """
-        self.manifest_import.load_manifest()
-        self.jantrack_data = copy.deepcopy(self.manifest_import.manifest_data)
+        disk_data = load_disk_manifest()
+        # Append added data
+        for shot, shot_data in disk_data.items():
+            if shot not in self.jantrack_data.keys() and shot not in self.commit_record.shot_deletions:
+                self.jantrack_data[shot] = shot_data
 
+            else:
+                for asset, asset_data in shot_data.items():
+                    if asset not in self.jantrack_data[shot].keys() and [shot,asset] not in self.commit_record.asset_deletions:
+                        self.jantrack_data[shot][asset] = asset_data
+
+        # Append on disk deletions
+        current_memory_data = copy.deepcopy(self.jantrack_data)
+        for shot, shot_data in current_memory_data.items():
+            if shot not in disk_data.keys() and shot not in self.commit_record.shot_additions:
+                del self.jantrack_data[shot]
+
+            else:
+                for asset, asset_data in shot_data.items():
+                    if asset not in disk_data[shot].keys() and [shot, asset] not in self.commit_record.asset_additions:
+                        del self.jantrack_data[shot][asset]
         
-    def get_network_hip(self, shot):
-        """
-        Get the latest network houdini file path for a shot from the network drive
-        Input: string shot
-        Output: string shot_hip_path
-        """
-        path = os.path.join(self.NETWORK_PROJECT_PATH, shot) + "*"
-        hips = sorted(glob(path))
-        if len(hips)>1:
-            shot_hip_path = hips[-1]
+            
 
-            return shot_hip_path
 
-        else:
-            return None
+
+
+    
 
 
 
