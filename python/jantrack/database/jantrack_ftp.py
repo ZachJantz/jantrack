@@ -28,7 +28,6 @@ def transfer_asset_files(asset_data, source, destination):
 		asset_data - diectionary containing an assets metadata
 		source - source project file path string
 		destination - string destination project directory path
-	
 	"""
 
 	asset_relpath = asset_data["path"]
@@ -43,14 +42,13 @@ def transfer_asset_files(asset_data, source, destination):
 	destination_path = os.path.join(destination, asset_relpath)
 	source_path = os.path.join(source, asset_relpath)
 
-	if os.path.exists(source_path):
+	if os.path.exists(source_path) and os.path.exists(destination_path) is False:
 
 		if os.path.isdir(source_path):
 			system_copy_directory(source_path, destination_path)
 		
 		else:
-			if os.path.exists(destination_path) is False:
-				system_copy_file(source_path, destination_path)
+			system_copy_file(source_path, destination_path)
 
 
 def transfer_hip(hip_network_path, destination):
@@ -63,7 +61,7 @@ def transfer_hip(hip_network_path, destination):
 
 	if hip_network_path != None:
 
-		hip_destination_path = os.path.join(destination, os.path.split(hip_network_path))
+		hip_destination_path = os.path.join(destination, os.path.split(hip_network_path)[1])
 		system_copy_file(hip_network_path, hip_destination_path)
 
 
