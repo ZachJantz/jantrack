@@ -13,7 +13,7 @@ that I created for our project Rider.
 ## Goals
 - Create installation protocol
 - Improve Houdini integration
-- Transfer from a json based system to a more scalable SQLite database
+- Add logging functionality
 - USD implimentation
 
 
